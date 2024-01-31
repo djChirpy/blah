@@ -1,0 +1,40 @@
+include required(classpath("application"))
+
+backend {
+    default: singularity
+    providers: {
+        singularity {
+            # The backend custom configuration.
+            actor-factory = "cromwell.backend.impl.sfs.config.ConfigBackendLifecycleActorFactory"
+
+            config {
+                run-in-background = true
+                runtime-attributes = """
+                    Int? cpu
+                    Float? memory_gb
+                    String? docker
+                    String? output_filename
+                    String? error_filename
+                """
+#                submit-docker = """
+#                  singularity exec --bind ${cwd}:${docker_cwd} /home/unix/jphekman/seq/cloud/docker/gatk-4.1.0.0.simg ${job_shell} ${script}
+#                """
+		 submit-docker = """
+                    source /broad/software/scripts/useuse;use UGER;qsub \
+                    -terse \
+                    -V \
+                    -b y \
+                    -N ${job_name} \
+                    -cwd \
+                    -o ${default="stdout.o" output_filename + ".o"} \
+                    -e ${default="stderr.e" error_filename + ".e"} \
+                    -l os=RedHat7 \
+                    -pe smp ${default=1 cpu} \
+                    -binding linear:${default=1 cpu} \
+                    ${"-l h_vmem=" + memory_gb + "G"} \
+                    singularity -q exec --bind ${cwd}:${docker_cwd} docker://${docker} ${job_shell} ${script}
+                """
+            }
+        }
+    }
+}
